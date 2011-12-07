@@ -1,0 +1,21 @@
+commit 3d4de39be2c49f0b87cc11048e9d6146118ba6dc
+Author: Richard Hughes <richard@hughsie.com>
+Date:   Mon Jan 25 15:11:40 2010 +0000
+
+    Don't show the user a sleep failed link pointing to the quirk site
+    
+    In a KMS world the quirks are more than likely ignored now anyway.
+
+diff --git a/data/gnome-power-manager.schemas.in b/data/gnome-power-manager.schemas.in
+index 14f403e..1ecb1e8 100644
+--- a/data/gnome-power-manager.schemas.in
++++ b/data/gnome-power-manager.schemas.in
+@@ -508,7 +508,7 @@
+       <applyto>/apps/gnome-power-manager/notify/sleep_failed_uri</applyto>
+       <owner>gnome-power-manager</owner>
+       <type>string</type>
+-      <default>http://people.freedesktop.org/~hughsient/quirk/</default>
++      <default></default>
+       <locale name="C">
+         <short>The URI to show to the user on sleep failure</short>
+         <long>When sleep fails we can show the user a button to help fix the situation. Leave this blank if the button should not be shown.</long>

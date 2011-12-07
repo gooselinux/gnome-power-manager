@@ -1,0 +1,13 @@
+diff -up gnome-power-manager-2.28.2/src/gsd-media-keys-window.c.spam gnome-power-manager-2.28.2/src/gsd-media-keys-window.c
+--- gnome-power-manager-2.28.2/src/gsd-media-keys-window.c.spam	2009-12-18 10:04:22.303109410 -0500
++++ gnome-power-manager-2.28.2/src/gsd-media-keys-window.c	2009-12-18 10:03:58.135359461 -0500
+@@ -133,6 +133,9 @@ add_hide_timeout (GsdMediaKeysWindow *wi
+ static void
+ update_window (GsdMediaKeysWindow *window)
+ {
++        if (!gtk_widget_is_drawable (GTK_WIDGET (window)))
++                return;
++
+         remove_hide_timeout (window);
+         add_hide_timeout (window);
+ 

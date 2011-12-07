@@ -1,0 +1,149 @@
+From ab519b6aad73e9b0d738d4ddb0ee2cd3774b5884 Mon Sep 17 00:00:00 2001
+From: Richard Hughes <richard@hughsie.com>
+Date: Thu, 22 Oct 2009 09:20:42 +0100
+Subject: [PATCH 2/2] Make the left and right buttons on the status icon bring up the same menu, UI copied from git master
+
+---
+ src/gpm-tray-icon.c |  102 ++++++++++++++++++++++-----------------------------
+ 1 files changed, 44 insertions(+), 58 deletions(-)
+
+diff --git a/src/gpm-tray-icon.c b/src/gpm-tray-icon.c
+index 65e8e0b..96bf8cc 100644
+--- a/src/gpm-tray-icon.c
++++ b/src/gpm-tray-icon.c
+@@ -326,6 +326,9 @@ gpm_tray_icon_class_init (GpmTrayIconClass *klass)
+ 			      0);
+ }
+ 
++/* prototype to avoid moving a huge function and bloating the patch */
++static guint gpm_tray_icon_add_device (GpmTrayIcon *icon, GtkMenu *menu, const GPtrArray *array, DkpDeviceType type);
++
+ /**
+  * gpm_tray_icon_popup_menu_cb:
+  *
+@@ -339,11 +342,47 @@ gpm_tray_icon_popup_menu_cb (GtkStatusIcon *status_icon, guint button, guint32 t
+ 	GtkWidget *image;
+ 	gchar *path;
+ 	gboolean ret;
++	guint dev_cnt = 0;
++	GPtrArray *array;
+ 
+-	egg_debug ("icon right clicked");
++	/* add all device types to the drop down menu */
++	array = gpm_engine_get_devices (icon->priv->engine);
++	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_BATTERY);
++	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_UPS);
++	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_MOUSE);
++	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_KEYBOARD);
++	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_PDA);
++	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_PHONE);
++	g_ptr_array_unref (array);
++
++	/* only do the seporator if we have at least one device and can do an action */
++	if (dev_cnt != 0 && (icon->priv->show_suspend || icon->priv->show_hibernate || icon->priv->show_context_menu)) {
++		item = gtk_separator_menu_item_new ();
++		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
++	}
++
++	/* Suspend if available */
++	if (icon->priv->show_suspend) {
++		item = gtk_image_menu_item_new_with_mnemonic (_("_Suspend"));
++		image = gtk_image_new_from_icon_name (GPM_STOCK_SUSPEND, GTK_ICON_SIZE_MENU);
++		gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (item), image);
++		g_signal_connect (G_OBJECT (item), "activate",
++				  G_CALLBACK (gpm_tray_icon_suspend_cb), icon);
++		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
++	}
++
++	/* Hibernate if available */
++	if (icon->priv->show_hibernate) {
++		item = gtk_image_menu_item_new_with_mnemonic (_("Hi_bernate"));
++		image = gtk_image_new_from_icon_name (GPM_STOCK_HIBERNATE, GTK_ICON_SIZE_MENU);
++		gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (item), image);
++		g_signal_connect (G_OBJECT (item), "activate",
++				  G_CALLBACK (gpm_tray_icon_hibernate_cb), icon);
++		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
++	}
+ 
+ 	if (!icon->priv->show_context_menu)
+-		return;
++		goto show;
+ 
+ 	/* preferences */
+ 	item = gtk_image_menu_item_new_with_mnemonic (_("_Preferences"));
+@@ -367,7 +406,7 @@ gpm_tray_icon_popup_menu_cb (GtkStatusIcon *status_icon, guint button, guint32 t
+ 				  G_CALLBACK (gpm_tray_icon_show_statistics_cb), icon);
+ 		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+ 	}
+-
++show:
+ 	/* show the menu */
+ 	gtk_widget_show_all (GTK_WIDGET (menu));
+ 	gtk_menu_popup (GTK_MENU (menu), NULL, NULL,
+@@ -446,61 +485,8 @@ gpm_tray_icon_add_device (GpmTrayIcon *icon, GtkMenu *menu, const GPtrArray *arr
+ static void
+ gpm_tray_icon_activate_cb (GtkStatusIcon *status_icon, GpmTrayIcon *icon)
+ {
+-	GtkMenu *menu = (GtkMenu*) gtk_menu_new ();
+-	GtkWidget *item;
+-	GtkWidget *image;
+-	guint dev_cnt = 0;
+-	GPtrArray *array;
+-	egg_debug ("icon left clicked");
+-
+-	/* add all device types to the drop down menu */
+-	array = gpm_engine_get_devices (icon->priv->engine);
+-	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_BATTERY);
+-	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_UPS);
+-	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_MOUSE);
+-	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_KEYBOARD);
+-	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_PDA);
+-	dev_cnt += gpm_tray_icon_add_device (icon, menu, array, DKP_DEVICE_TYPE_PHONE);
+-	g_ptr_array_unref (array);
+-
+-	/* nothing to display! */
+-	if (dev_cnt == 0 && !icon->priv->show_suspend && !icon->priv->show_hibernate)
+-		return;
+-
+-	/* only do the seporator if we have at least one device and can do an action */
+-	if (dev_cnt != 0 && (icon->priv->show_suspend || icon->priv->show_hibernate)) {
+-		item = gtk_separator_menu_item_new ();
+-		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+-	}
+-
+-	/* Suspend if available */
+-	if (icon->priv->show_suspend) {
+-		item = gtk_image_menu_item_new_with_mnemonic (_("_Suspend"));
+-		image = gtk_image_new_from_icon_name (GPM_STOCK_SUSPEND, GTK_ICON_SIZE_MENU);
+-		gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (item), image);
+-		g_signal_connect (G_OBJECT (item), "activate",
+-				  G_CALLBACK (gpm_tray_icon_suspend_cb), icon);
+-		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+-	}
+-
+-	/* Hibernate if available */
+-	if (icon->priv->show_hibernate) {
+-		item = gtk_image_menu_item_new_with_mnemonic (_("Hi_bernate"));
+-		image = gtk_image_new_from_icon_name (GPM_STOCK_HIBERNATE, GTK_ICON_SIZE_MENU);
+-		gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (item), image);
+-		g_signal_connect (G_OBJECT (item), "activate",
+-				  G_CALLBACK (gpm_tray_icon_hibernate_cb), icon);
+-		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+-	}
+-
+-	/* show the menu */
+-	gtk_widget_show_all (GTK_WIDGET (menu));
+-	gtk_menu_popup (GTK_MENU (menu), NULL, NULL,
+-			gtk_status_icon_position_menu, status_icon,
+-			1, gtk_get_current_event_time());
+-
+-	g_signal_connect (GTK_WIDGET (menu), "hide",
+-			  G_CALLBACK (gpm_tray_icon_popup_cleared_cd), icon);
++	/* fake this (coming from a left click, now) */
++	gpm_tray_icon_popup_menu_cb (status_icon, 1, gtk_get_current_event_time(), icon);
+ }
+ 
+ /**
+-- 
+1.6.5.rc2
+
